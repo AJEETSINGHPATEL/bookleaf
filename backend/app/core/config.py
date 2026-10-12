@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "bookleaf_ultra_secure_jwt_secret_key_2026_prod"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    DATABASE_URL: str = "sqlite:///./bookleaf.db"
+    DATABASE_URL: str = ""
     
     # AI / Gemini Configuration
     GEMINI_API_KEY: str = ""
