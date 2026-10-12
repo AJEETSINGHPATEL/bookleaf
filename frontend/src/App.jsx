@@ -53,20 +53,10 @@ function App() {
     };
   }, []);
 
-  const handleSwitchUser = async (email, password) => {
-    try {
-      const { apiRequest } = await import('./services/api');
-      const data = await apiRequest('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password })
-      });
-      setAuthToken(data.access_token);
-      setCurrentUser(data.user);
-      setUser(data.user);
-      setReloadSignal(prev => prev + 1);
-    } catch (e) {
-      console.error('Switch user failed:', e);
-    }
+  const handleLogout = () => {
+    setAuthToken(null);
+    setCurrentUser(null);
+    setUser(null);
   };
 
   if (!user) {
@@ -75,7 +65,7 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
-      <Navbar user={user} onLogout={handleLogout} onSwitchUser={handleSwitchUser} sseConnected={sseConnected} />
+      <Navbar user={user} onLogout={handleLogout} sseConnected={sseConnected} />
       <main style={{ flex: 1 }}>
         {user.role === 'admin' ? (
           <AdminPortal user={user} reloadSignal={reloadSignal} />

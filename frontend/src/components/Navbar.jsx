@@ -102,50 +102,7 @@ export default function Navbar({ user, onLogout, sseConnected }) {
             </div>
           </div>
 
-          {/* Quick Role & Portal Switcher */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            {isAdmin ? (
-              <button
-                onClick={() => onSwitchUser && onSwitchUser('priya.sharma@email.com', 'author123')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: '6px',
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  color: '#1d4ed8',
-                  fontSize: '0.78rem',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-                title="Switch to Author Portal view"
-              >
-                <User size={14} /> Switch to Author (Priya)
-              </button>
-            ) : (
-              <button
-                onClick={() => onSwitchUser && onSwitchUser('admin@bookleaf.com', 'admin123')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: '6px',
-                  backgroundColor: '#fef3c7',
-                  border: '1px solid #fde68a',
-                  color: '#b45309',
-                  fontSize: '0.78rem',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-                title="Switch to Ops Admin Desk"
-              >
-                <Shield size={14} /> Switch to Ops Admin Desk
-              </button>
-            )}
-          </div>
+
 
           {/* Logout */}
           <button
