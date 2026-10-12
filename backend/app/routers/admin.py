@@ -24,7 +24,11 @@ def get_admin_ticket_queue(
     status_filter: Optional[str] = Query(None, alias="status"),
     category_filter: Optional[str] = Query(None, alias="category"),
     priority_filter: Optional[str] = Query(None, alias="priority"),
+    date_from: Optional[str] = Query(None, alias="date_from"),
+    date_to: Optional[str] = Query(None, alias="date_to"),
     sort_by: Optional[str] = Query("urgent_first", alias="sort"),
+    limit: Optional[int] = Query(50, ge=1, le=200),
+    offset: Optional[int] = Query(0, ge=0),
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
@@ -39,6 +43,23 @@ def get_admin_ticket_queue(
     if priority_filter and priority_filter.lower() != "all":
         query = query.filter(Ticket.priority == priority_filter)
 
+    # Date range filtering (ISO format e.g. YYYY-MM-DD)
+    if date_from:
+        try:
+            from datetime import datetime
+            df = datetime.fromisoformat(date_from)
+            query = query.filter(Ticket.created_at >= df)
+        except Exception:
+            pass
+
+    if date_to:
+        try:
+            from datetime import datetime, time
+            dt = datetime.combine(datetime.fromisoformat(date_to).date(), time.max)
+            query = query.filter(Ticket.created_at <= dt)
+        except Exception:
+            pass
+
     tickets = query.all()
 
     # Priority ranking helper for sorting
@@ -52,7 +73,10 @@ def get_admin_ticket_queue(
     else: # newest
         tickets.sort(key=lambda t: t.created_at, reverse=True)
 
-    return [format_ticket_response(t) for t in tickets]
+    # Apply pagination window
+    paginated_tickets = tickets[offset : offset + limit]
+
+    return [format_ticket_response(t) for t in paginated_tickets]
 
 @router.patch("/tickets/{ticket_id}", response_model=TicketResponse)
 async def update_ticket_admin(

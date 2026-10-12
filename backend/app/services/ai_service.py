@@ -273,16 +273,19 @@ Ticket Description: {description}
         cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE).strip()
         data = json.loads(cleaned)
 
-        cat = data.get("category", "General Inquiry")
+        from app.schemas.schemas import AITicketAnalysis
+        analysis = AITicketAnalysis.model_validate(data)
+
+        cat = analysis.category
         if cat not in ALLOWED_CATEGORIES:
             cat = heuristic_classify_and_score(subject, description)["category"]
 
-        prio = data.get("priority", "Medium")
+        prio = analysis.priority
         if prio not in ALLOWED_PRIORITIES:
             prio = heuristic_classify_and_score(subject, description)["priority"]
 
-        reason = data.get("priority_reasoning") or "Evaluated by BookLeaf AI classifier."
-        draft = data.get("draft_response") or heuristic_draft_response(author_name, subject, description, book_title, cat)
+        reason = analysis.priority_reasoning or "Evaluated by BookLeaf AI classifier."
+        draft = analysis.draft_response or heuristic_draft_response(author_name, subject, description, book_title, cat)
 
         return {
             "category": cat,

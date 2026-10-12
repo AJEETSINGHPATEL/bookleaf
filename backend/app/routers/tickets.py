@@ -70,21 +70,41 @@ def format_ticket_response(ticket: Ticket) -> dict:
     }
 
 @router.get("/stream")
-async def sse_tickets_stream(request: Request):
+async def sse_tickets_stream(
+    request: Request,
+    token: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
-    Server-Sent Events endpoint to stream real-time updates to client portals.
+    Server-Sent Events endpoint to stream real-time updates securely to client portals.
+    Authenticates subscriber via query param 'token' (EventSource compatibility) or Bearer header.
     """
-    queue = await broadcaster.subscribe()
+    auth_header = request.headers.get("Authorization")
+    raw_token = token
+    if auth_header and auth_header.startswith("Bearer "):
+        raw_token = auth_header.replace("Bearer ", "").strip()
+
+    user_id = 0
+    user_role = "author"
+
+    if raw_token:
+        from app.core.security import decode_access_token
+        payload = decode_access_token(raw_token)
+        if payload and payload.get("sub"):
+            user_id = int(payload["sub"])
+            user_role = payload.get("role", "author")
+
+    subscriber = await broadcaster.subscribe(user_id=user_id, role=user_role)
 
     async def event_generator():
         try:
-            # Send initial ping
+            # Send initial ping with connection confirmation
             yield "event: ping\ndata: {\"message\": \"connected\"}\n\n"
             while True:
                 if await request.is_disconnected():
                     break
                 try:
-                    data = await asyncio.wait_for(queue.get(), timeout=20.0)
+                    data = await asyncio.wait_for(subscriber.queue.get(), timeout=20.0)
                     yield data
                 except asyncio.TimeoutError:
                     # Heartbeat to keep connection alive
@@ -92,7 +112,7 @@ async def sse_tickets_stream(request: Request):
         except asyncio.CancelledError:
             pass
         finally:
-            broadcaster.unsubscribe(queue)
+            broadcaster.unsubscribe(subscriber)
 
     return StreamingResponse(
         event_generator(),
@@ -241,7 +261,7 @@ async def post_ticket_message(
         "created_at": msg.created_at
     }
 
-    # Broadcast event via SSE
-    await broadcaster.broadcast("new_message", {"ticket_id": ticket.id, "message": msg_data})
+    # Broadcast event via SSE scoped to ticket creator and admins
+    await broadcaster.broadcast("new_message", {"ticket_id": ticket.id, "message": msg_data}, target_user_id=ticket.creator_id)
 
     return msg_data

@@ -15,8 +15,10 @@ function App() {
     let eventSource = null;
 
     const connectSSE = () => {
-      // Connect to FastAPI SSE stream
-      eventSource = new EventSource('/api/tickets/stream');
+      // Connect to FastAPI SSE stream with auth token
+      const token = localStorage.getItem('bookleaf_token');
+      const sseUrl = token ? `/api/tickets/stream?token=${encodeURIComponent(token)}` : '/api/tickets/stream';
+      eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = () => {
         setSseConnected(true);

@@ -37,6 +37,7 @@ export default function AdminPortal({ user, reloadSignal }) {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [dateFilter, setDateFilter] = useState('');
   const [sortBy, setSortBy] = useState('urgent_first');
 
   // Draft editing state
@@ -52,7 +53,7 @@ export default function AdminPortal({ user, reloadSignal }) {
 
   useEffect(() => {
     loadTickets();
-  }, [categoryFilter, priorityFilter, statusFilter, sortBy, reloadSignal]);
+  }, [categoryFilter, priorityFilter, statusFilter, dateFilter, sortBy, reloadSignal]);
 
   const loadTickets = async () => {
     try {
@@ -61,6 +62,7 @@ export default function AdminPortal({ user, reloadSignal }) {
       if (categoryFilter !== 'All') queryParams.append('category', categoryFilter);
       if (priorityFilter !== 'All') queryParams.append('priority', priorityFilter);
       if (statusFilter !== 'All') queryParams.append('status', statusFilter);
+      if (dateFilter) queryParams.append('date_from', dateFilter);
       queryParams.append('sort', sortBy);
 
       const data = await apiRequest(`/admin/tickets?${queryParams.toString()}`);
@@ -253,6 +255,18 @@ export default function AdminPortal({ user, reloadSignal }) {
             >
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#64748b', marginBottom: '0.25rem' }}>
+              CREATED FROM DATE
+            </label>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              style={{ width: '100%', padding: '0.45rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+            />
           </div>
 
           <div>

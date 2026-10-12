@@ -122,3 +122,9 @@ class AddInternalNoteRequest(BaseModel):
 
 class RegenerateDraftRequest(BaseModel):
     instructions: Optional[str] = None
+
+class AITicketAnalysis(BaseModel):
+    category: str
+    priority: str
+    priority_reasoning: str
+    draft_response: str
