@@ -4,7 +4,7 @@
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
-    "api/**/*.py": {
+    "api/index.py": {
       "includeFiles": "{backend/**,bookleaf_sample_data.json}",
       "maxDuration": 60
     }
