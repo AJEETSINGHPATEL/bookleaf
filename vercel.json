@@ -5,10 +5,8 @@
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/**/*.py": {
-      "includeFiles": [
-        "backend/**",
-        "bookleaf_sample_data.json"
-      ]
+      "includeFiles": "{backend/**,bookleaf_sample_data.json}",
+      "maxDuration": 60
     }
   },
   "rewrites": [
