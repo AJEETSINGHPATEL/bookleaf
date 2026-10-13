@@ -16,18 +16,15 @@ from app.routers import auth, author, tickets, admin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure database schema is initialized and seeded with sample data
-    try:
-        seed_database()
-    except Exception as e:
-        print(f"Startup seed notice: {e}")
+    # Seeding is completed in Supabase; avoid blocking cold start
     yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Author Support & Communication Portal with AI-assisted classification and response generation.",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False
 )
 
 # Cross-Origin Resource Sharing (CORS) setup for local dev and web clients
