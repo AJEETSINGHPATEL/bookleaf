@@ -3,7 +3,7 @@ import Navbar from './components/Navbar';
 import Login from './components/Login';
 import AuthorPortal from './components/AuthorPortal';
 import AdminPortal from './components/AdminPortal';
-import { getCurrentUser, setAuthToken, setCurrentUser } from './services/api';
+import { getCurrentUser, setAuthToken, setCurrentUser, API_BASE } from './services/api';
 
 function App() {
   const [user, setUser] = useState(getCurrentUser());
@@ -24,7 +24,7 @@ function App() {
       const token = localStorage.getItem('bookleaf_token');
       if (!token) return;
 
-      const sseUrl = `/api/tickets/stream?token=${encodeURIComponent(token)}`;
+      const sseUrl = `${API_BASE}/tickets/stream?token=${encodeURIComponent(token)}`;
       eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = () => {
