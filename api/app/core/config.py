@@ -9,8 +9,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
-    # Fallback to Supabase connection if DATABASE_URL is not set in environment
-    DATABASE_URL: str = "postgresql://postgres.jjsawllnjyfbzousmarh:book%40321%232%24134@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+    DATABASE_URL: str = ""
     
     # AI / Gemini Configuration (provided via Vercel Environment Variables)
     GEMINI_API_KEY: str = ""

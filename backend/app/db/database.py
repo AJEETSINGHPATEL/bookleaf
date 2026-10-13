@@ -3,27 +3,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
-# Pre-encoded verified Supabase connection string that is guaranteed to work
-VERIFIED_SUPABASE_URL = "postgresql://postgres.jjsawllnjyfbzousmarh:book%40321%232%24134@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
-
 def get_engine():
-    raw_url = (settings.DATABASE_URL or "").strip()
+    raw_url = (settings.DATABASE_URL or os.environ.get("DATABASE_URL") or "").strip()
     
-    # If no URL or empty, use verified Supabase pooler connection
     if not raw_url:
-        target_url = VERIFIED_SUPABASE_URL
-    else:
-        target_url = raw_url
-        if target_url.startswith("postgres://"):
-            target_url = target_url.replace("postgres://", "postgresql://", 1)
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Please define it in your .env file or environment variables."
+        )
+
+    target_url = raw_url
+    if target_url.startswith("postgres://"):
+        target_url = target_url.replace("postgres://", "postgresql://", 1)
         
-        # If user entered unescaped @ or # in Supabase password (causes host resolution failure)
-        if "aws-0-ap-southeast-1.pooler.supabase.com" in target_url and "book%40321" not in target_url:
-            target_url = VERIFIED_SUPABASE_URL
-            
-        if "supabase.com" in target_url and "sslmode" not in target_url:
-            delim = "&" if "?" in target_url else "?"
-            target_url = f"{target_url}{delim}sslmode=require"
+    if "supabase.com" in target_url and "sslmode" not in target_url:
+        delim = "&" if "?" in target_url else "?"
+        target_url = f"{target_url}{delim}sslmode=require"
 
     try:
         return create_engine(

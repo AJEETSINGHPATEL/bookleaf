@@ -171,8 +171,8 @@ SECRET_KEY="bookleaf_ultra_secure_jwt_secret_key_2026_prod"
 ALGORITHM="HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
-# Live Supabase PostgreSQL Connection Pooler (Asia Southeast - Singapore)
-DATABASE_URL="postgresql://postgres.jjsawllnjyfbzousmarh:book%40321%232%24134@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+# PostgreSQL Connection URI (e.g. Supabase, Neon, or local PostgreSQL)
+DATABASE_URL="postgresql://username:password@localhost:5432/bookleaf"
 
 # Google Gemini AI Configuration
 GEMINI_API_KEY="your_gemini_api_key_here"
@@ -196,7 +196,8 @@ source venv/bin/activate
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Run database seed (Seeds 11 users, 10 authors, 18 books, 10 complaints)
+# Seed database directly from bookleaf_sample_data.json
+# Automatically creates the Operations Admin and all 10 author accounts with their books & financial records
 python -m app.db.seed
 
 # Start Uvicorn development server
@@ -225,23 +226,12 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-## 🔑 Test Accounts Directory
+## 🗄️ Dynamic Data Seeding & User Accounts
 
-Use these seeded accounts to test different roles and edge cases:
-
-| Role | Email | Password | Context & Edge Case |
-| :--- | :--- | :--- | :--- |
-| **Ops Admin** | `admin@bookleaf.com` | `admin123` | Full administrative control, queue triage, AI response approval, internal notes |
-| **Author (AUTH001)** | `priya.sharma@email.com` | `author123` | **Priya Sharma** — 2 published books (*Echoes of Silence*, *The Midnight Garden*), ₹8,100 unpaid royalty |
-| **Author (AUTH002)** | `rohit.kapoor@email.com` | `author123` | **Rohit Kapoor** — 1 published book (*Wings of Fire Within*), ₹0 pending royalty |
-| **Author (AUTH003)** | `ananya.deshmukh@email.com` | `author123` | **Ananya Deshmukh** — 3 published books, multiple active distribution queries |
-| **Author (AUTH004)** | `amit.patel@email.com` | `author123` | **Amit Patel** — 1 book, ₹2,400 pending royalty query |
-| **Author (AUTH005)** | `vikram.joshi@email.com` | `author123` | **Vikram Joshi** — *Digital Horizons* is **In Production (Typesetting)** edge case (0 sales, ₹0 royalties) |
-| **Author (AUTH006)** | `sunita.nair@email.com` | `author123` | **Sunita Nair** — 2 published books, printing quality complaint |
-| **Author (AUTH007)** | `rajesh.verma@email.com` | `author123` | **Rajesh Verma** — 1 published book, ISBN metadata issue |
-| **Author (AUTH008)** | `kavita.singh@email.com` | `author123` | **Kavita Singh** — 2 published books, general inquiries |
-| **Author (AUTH009)** | `deepak.gupta@email.com` | `author123` | **Deepak Gupta** — 1 published book, Amazon stock synchronization query |
-| **Author (AUTH010)** | `meera.sen@email.com` | `author123` | **Meera Sen** — 3 published books, high-volume author |
+The platform dynamically seeds all real author and book data directly from [`bookleaf_sample_data.json`](./bookleaf_sample_data.json) into PostgreSQL without hardcoded or dummy placeholders:
+- **Operations Admin:** Account created as `admin@bookleaf.com` with role `admin` for queue triage, ticket management, and approval workflows.
+- **Author Accounts:** Created dynamically from each author record in [`bookleaf_sample_data.json`](./bookleaf_sample_data.json) (e.g., `priya.sharma@email.com`, `rohit.kapoor@email.com`, etc.), linking their complete bibliography, royalty balances, and active publishing status.
+- **No Dummy Data:** All user accounts, books, and royalty calculations are fully relational and loaded directly into the configured database.
 
 ---
 
@@ -252,7 +242,6 @@ Use these seeded accounts to test different roles and edge cases:
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/login` | Authenticates email & password, returns JWT bearer token | Public |
 | `GET` | `/api/auth/me` | Returns current user profile details | Authenticated |
-| `GET` | `/api/auth/demo-users`| Returns seeded demo accounts for evaluation | Public |
 
 ### Author Desk (`/api/author`)
 | Method | Endpoint | Description | Access |

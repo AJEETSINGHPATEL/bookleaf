@@ -158,66 +158,6 @@ export default function Login({ onLoginSuccess }) {
               <ArrowRight size={18} />
             </button>
           </form>
-
-          {/* Quick Demo Credentials */}
-          <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', textAlign: 'center' }}>
-              One-Click Demo Credentials
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => { setEmail('admin@bookleaf.com'); setPassword('admin123'); }}
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '6px',
-                  backgroundColor: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  color: '#1e293b',
-                  fontSize: '0.78rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                👑 <strong>Admin Desk</strong><br /><span style={{ fontSize: '0.72rem', color: '#64748b' }}>admin@bookleaf.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEmail('priya.sharma@email.com'); setPassword('author123'); }}
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '6px',
-                  backgroundColor: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  color: '#1e293b',
-                  fontSize: '0.78rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                ✍️ <strong>Priya Sharma</strong><br /><span style={{ fontSize: '0.72rem', color: '#64748b' }}>priya.sharma@email.com</span>
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setEmail('rohit.kapoor@email.com'); setPassword('author123'); }}
-              style={{
-                width: '100%',
-                padding: '0.45rem 0.75rem',
-                borderRadius: '6px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                color: '#334155',
-                fontSize: '0.76rem',
-                cursor: 'pointer',
-                textAlign: 'center'
-              }}
-            >
-              ✍️ <strong>Rohit Kapoor</strong> (Author) — rohit.kapoor@email.com
-            </button>
-          </div>
         </div>
       </div>
     </div>
