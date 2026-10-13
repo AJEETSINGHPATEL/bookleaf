@@ -25,12 +25,27 @@ def get_engine():
             delim = "&" if "?" in target_url else "?"
             target_url = f"{target_url}{delim}sslmode=require"
 
-    return create_engine(
-        target_url,
-        connect_args={"check_same_thread": False} if "sqlite" in target_url else {},
-        pool_pre_ping=True,
-        pool_recycle=300
-    )
+    try:
+        return create_engine(
+            target_url,
+            connect_args={"check_same_thread": False} if "sqlite" in target_url else {},
+            pool_pre_ping=True,
+            pool_recycle=300
+        )
+    except Exception as e:
+        # Fallback to postgresql+psycopg2 if default dialect fails
+        if target_url.startswith("postgresql://"):
+            try:
+                alt_url = target_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+                return create_engine(
+                    alt_url,
+                    connect_args={"check_same_thread": False} if "sqlite" in alt_url else {},
+                    pool_pre_ping=True,
+                    pool_recycle=300
+                )
+            except Exception:
+                pass
+        raise e
 
 engine = get_engine()
 
