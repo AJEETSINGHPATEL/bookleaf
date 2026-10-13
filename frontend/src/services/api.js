@@ -54,7 +54,12 @@ export async function apiRequest(endpoint, options = {}) {
       const errData = await res.json();
       errDetail = errData.detail || errData.message || JSON.stringify(errData);
     } catch {
-      errDetail = `${res.status} ${res.statusText}`;
+      try {
+        const text = await res.text();
+        errDetail = text ? text.slice(0, 150) : `Error (${res.status}): Server returned invalid response.`;
+      } catch {
+        errDetail = `Error (${res.status}): Server returned invalid response.`;
+      }
     }
     throw new Error(errDetail);
   }
