@@ -1,17 +1,9 @@
 import sys
 import os
-from pathlib import Path
 
-# Add project root and backend directory to Python search path
-current_dir = Path(__file__).resolve().parent
-root_dir = current_dir.parent
-backend_dir = root_dir / "backend"
+# Add api directory to sys.path so app module is directly importable
+api_dir = os.path.dirname(os.path.abspath(__file__))
+if api_dir not in sys.path:
+    sys.path.insert(0, api_dir)
 
-for p in [str(current_dir), str(root_dir), str(backend_dir)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-try:
-    from app.main import app
-except ImportError:
-    from backend.app.main import app
+from app.main import app
