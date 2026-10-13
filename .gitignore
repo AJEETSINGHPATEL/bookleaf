@@ -14,3 +14,10 @@ dist/
 .vite/
 .DS_Store
 Thumbs.db
+
+# Sensitive credentials & submission PDFs (not to be pushed to GitHub)
+*.pdf
+*credentials*
+*submission*
+*Submission*
+

@@ -61,22 +61,3 @@ def get_me(current_user: User = Depends(get_current_user)):
         created_at=current_user.created_at,
         author_id_code=author_code
     )
-
-@router.get("/demo-users")
-def get_demo_users(db: Session = Depends(get_db)):
-    """
-    Convenience endpoint for live demo reviewers to easily select and switch test accounts.
-    """
-    users = db.query(User).all()
-    res = []
-    for u in users:
-        author_code = u.author_profile.author_id_code if u.author_profile else None
-        res.append({
-            "id": u.id,
-            "email": u.email,
-            "name": u.name,
-            "role": u.role,
-            "author_id_code": author_code,
-            "default_password": "admin123" if u.role == "admin" else "author123"
-        })
-    return res
