@@ -140,14 +140,19 @@ async def create_ticket(
         book_title = book.title
         book_status = book.status
 
+    subject = payload.subject.strip()
+    description = payload.description.strip()
+    if not subject or not description:
+        raise HTTPException(status_code=400, detail="Subject and description cannot be empty.")
+
     # Generate ticket number (e.g. TIK-3841)
     ticket_num = f"TIK-{random.randint(1000, 9999)}"
 
     # Run AI analysis (Category, Priority, Empathetic Draft)
     ai_result = await analyze_ticket_with_ai(
         author_name=current_user.name,
-        subject=payload.subject,
-        description=payload.description,
+        subject=subject,
+        description=description,
         book_title=book_title,
         book_status=book_status
     )
@@ -156,9 +161,9 @@ async def create_ticket(
         ticket_number=ticket_num,
         creator_id=current_user.id,
         book_id=payload.book_id,
-        subject=payload.subject,
-        description=payload.description,
-        attachment_name=payload.attachment_name,
+        subject=subject,
+        description=description,
+        attachment_name=payload.attachment_name.strip() if payload.attachment_name else None,
         category=ai_result["category"],
         ai_predicted_category=ai_result["category"],
         priority=ai_result["priority"],
@@ -234,11 +239,15 @@ async def post_ticket_message(
     if current_user.role == "author" and ticket.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied to this ticket.")
 
+    content = payload.message.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
     is_admin = (current_user.role == "admin")
     msg = TicketMessage(
         ticket_id=ticket.id,
         sender_id=current_user.id,
-        message=payload.message.strip(),
+        message=content,
         is_admin_reply=is_admin
     )
     db.add(msg)
@@ -263,5 +272,6 @@ async def post_ticket_message(
 
     # Broadcast event via SSE scoped to ticket creator and admins
     await broadcaster.broadcast("new_message", {"ticket_id": ticket.id, "message": msg_data}, target_user_id=ticket.creator_id)
+    await broadcaster.broadcast("ticket_updated", {"ticket_id": ticket.id, "status": ticket.status, "action": "new_message"})
 
     return msg_data

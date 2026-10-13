@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import Optional, List, Any
 from datetime import datetime
 
@@ -24,8 +24,7 @@ class UserResponse(UserBase):
     created_at: datetime
     author_id_code: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Book Schemas ---
 class BookResponse(BaseModel):
@@ -46,8 +45,7 @@ class BookResponse(BaseModel):
     print_partner: Optional[str] = None
     available_on: List[str] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Ticket & Message Schemas ---
 class TicketMessageResponse(BaseModel):
@@ -60,8 +58,7 @@ class TicketMessageResponse(BaseModel):
     is_admin_reply: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class InternalNoteResponse(BaseModel):
     id: int
@@ -70,8 +67,7 @@ class InternalNoteResponse(BaseModel):
     note: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TicketCreateRequest(BaseModel):
     book_id: Optional[int] = None
@@ -105,8 +101,7 @@ class TicketResponse(BaseModel):
     messages: List[TicketMessageResponse] = []
     internal_notes: List[InternalNoteResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TicketUpdateAdminRequest(BaseModel):
     status: Optional[str] = None # Open, In Progress, Resolved, Closed

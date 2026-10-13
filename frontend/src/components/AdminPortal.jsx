@@ -1,17 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Filter, 
   Sparkles, 
-  Clock, 
   UserCheck, 
   Send, 
   Edit3, 
-  CheckCircle, 
-  AlertTriangle,
-  RefreshCw,
-  FileText,
-  StickyNote,
-  Paperclip
+  RefreshCw, 
+  StickyNote
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 
@@ -28,7 +23,7 @@ const CATEGORIES = [
 const PRIORITIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
 const STATUSES = ['All', 'Open', 'In Progress', 'Resolved', 'Closed'];
 
-export default function AdminPortal({ user, reloadSignal }) {
+export default function AdminPortal({ reloadSignal }) {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,15 +42,27 @@ export default function AdminPortal({ user, reloadSignal }) {
   const [customInstructions, setCustomInstructions] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
 
+  // Refs to avoid stale closures in SSE effect
+  const selectedTicketIdRef = useRef(null);
+  const isEditingDraftRef = useRef(false);
+
+  useEffect(() => {
+    selectedTicketIdRef.current = selectedTicket?.id;
+    isEditingDraftRef.current = isEditingDraft;
+  }, [selectedTicket?.id, isEditingDraft]);
+
   // Internal Notes State
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
 
-  useEffect(() => {
-    loadTickets();
-  }, [categoryFilter, priorityFilter, statusFilter, dateFilter, sortBy, reloadSignal]);
+  // Non-blocking Toast Notification
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
-  const loadTickets = async () => {
+  const loadTickets = useCallback(async () => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
@@ -68,21 +75,39 @@ export default function AdminPortal({ user, reloadSignal }) {
       const data = await apiRequest(`/admin/tickets?${queryParams.toString()}`);
       setTickets(data);
 
-      if (selectedTicket) {
-        const refreshed = data.find(t => t.id === selectedTicket.id);
-        if (refreshed) {
-          setSelectedTicket(refreshed);
-          if (!isEditingDraft) {
-            setActiveDraft(refreshed.ai_draft_response || '');
-          }
+      setSelectedTicket(prev => {
+        if (!prev) return null;
+        const refreshed = data.find(t => t.id === prev.id);
+        if (refreshed && !isEditingDraftRef.current) {
+          setActiveDraft(refreshed.ai_draft_response || '');
         }
-      }
+        return refreshed || prev;
+      });
     } catch (err) {
       console.error('Failed to load tickets queue:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryFilter, priorityFilter, statusFilter, dateFilter, sortBy]);
+
+  // Synchronize on reloadSignal: reload queue AND fetch latest full ticket details in real time
+  useEffect(() => {
+    loadTickets();
+    const currentId = selectedTicketIdRef.current;
+    if (currentId) {
+      apiRequest(`/tickets/${currentId}`)
+        .then(fresh => {
+          setSelectedTicket(prev => {
+            if (!prev || prev.id !== fresh.id) return prev;
+            return {
+              ...fresh,
+              ai_draft_response: isEditingDraftRef.current ? prev.ai_draft_response : fresh.ai_draft_response
+            };
+          });
+        })
+        .catch(() => {});
+    }
+  }, [loadTickets, reloadSignal]);
 
   const handleSelectTicket = (ticket) => {
     setSelectedTicket(ticket);
@@ -100,8 +125,9 @@ export default function AdminPortal({ user, reloadSignal }) {
       });
       setSelectedTicket(updated);
       setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      showToast(`Updated ${field} to ${value}!`);
     } catch (err) {
-      alert(`Failed to update ${field}: ${err.message}`);
+      showToast(`Failed to update ${field}: ${err.message}`, 'error');
     }
   };
 
@@ -113,8 +139,9 @@ export default function AdminPortal({ user, reloadSignal }) {
       });
       setSelectedTicket(updated);
       setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      showToast('Ticket assigned to you!');
     } catch (err) {
-      alert(`Assignment failed: ${err.message}`);
+      showToast(`Assignment failed: ${err.message}`, 'error');
     }
   };
 
@@ -129,8 +156,9 @@ export default function AdminPortal({ user, reloadSignal }) {
       setActiveDraft(res.draft_response);
       setSelectedTicket(prev => ({ ...prev, ai_draft_response: res.draft_response }));
       setCustomInstructions('');
+      showToast('AI draft regenerated successfully!');
     } catch (err) {
-      alert(`Draft generation failed: ${err.message}`);
+      showToast(`Draft generation failed: ${err.message}`, 'error');
     } finally {
       setIsRegeneratingDraft(false);
     }
@@ -146,16 +174,19 @@ export default function AdminPortal({ user, reloadSignal }) {
         body: JSON.stringify({ message: activeDraft.trim() })
       });
 
-      // 2. Set ticket status to Resolved (or In Progress)
-      await handleOverride('status', 'Resolved');
+      // 2. Set ticket status to Resolved
+      await apiRequest(`/admin/tickets/${selectedTicket.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Resolved' })
+      });
 
-      // Refresh ticket details
+      // 3. Refresh ticket details
       const refreshed = await apiRequest(`/tickets/${selectedTicket.id}`);
       setSelectedTicket(refreshed);
       setTickets(prev => prev.map(t => t.id === refreshed.id ? refreshed : t));
-      alert('Official response sent to author!');
+      showToast('Official response sent and ticket marked as Resolved!');
     } catch (err) {
-      alert(`Failed to send response: ${err.message}`);
+      showToast(`Failed to send response: ${err.message}`, 'error');
     } finally {
       setSendingResponse(false);
     }
@@ -175,8 +206,9 @@ export default function AdminPortal({ user, reloadSignal }) {
         internal_notes: [...(prev.internal_notes || []), noteRes]
       }));
       setNewNote('');
+      showToast('Internal note saved successfully!');
     } catch (err) {
-      alert(`Failed to save internal note: ${err.message}`);
+      showToast(`Failed to save internal note: ${err.message}`, 'error');
     } finally {
       setAddingNote(false);
     }
@@ -193,7 +225,29 @@ export default function AdminPortal({ user, reloadSignal }) {
   };
 
   return (
-    <div className="container" style={{ padding: '2rem 1rem 4rem' }}>
+    <div className="container" style={{ padding: '2rem 1rem 4rem', position: 'relative' }}>
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '24px',
+          zIndex: 9999,
+          padding: '0.85rem 1.25rem',
+          borderRadius: '10px',
+          backgroundColor: toast.type === 'error' ? '#ef4444' : '#10b981',
+          color: '#ffffff',
+          fontWeight: '600',
+          fontSize: '0.9rem',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          animation: 'fadeIn 0.2s ease-in-out'
+        }}>
+          <span>{toast.message}</span>
+        </div>
+      )}
       {/* Top Filter Bar */}
       <div style={{
         backgroundColor: '#ffffff',
@@ -295,6 +349,16 @@ export default function AdminPortal({ user, reloadSignal }) {
       }}>
         {/* Ticket Queue Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {loading && tickets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#64748b', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <p style={{ fontSize: '0.9rem', fontWeight: '500' }}>Loading operations queue...</p>
+            </div>
+          ) : tickets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#64748b', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <p style={{ fontSize: '0.9rem', fontWeight: '500' }}>No tickets match the selected filters.</p>
+            </div>
+          ) : null}
+
           {tickets.map((t) => {
             const isSelected = selectedTicket?.id === t.id;
             const isUrgent = t.priority === 'Critical' || t.priority === 'High';

@@ -133,7 +133,7 @@ async def assign_ticket_to_self(
     return res
 
 @router.post("/tickets/{ticket_id}/internal-notes", response_model=InternalNoteResponse)
-def add_internal_note(
+async def add_internal_note(
     ticket_id: int,
     payload: AddInternalNoteRequest,
     current_user: User = Depends(require_admin),
@@ -143,14 +143,20 @@ def add_internal_note(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found.")
 
+    note_content = payload.note.strip()
+    if not note_content:
+        raise HTTPException(status_code=400, detail="Note content cannot be empty.")
+
     note = InternalNote(
         ticket_id=ticket.id,
         admin_user_id=current_user.id,
-        note=payload.note.strip()
+        note=note_content
     )
     db.add(note)
     db.commit()
     db.refresh(note)
+
+    await broadcaster.broadcast("ticket_updated", {"ticket_id": ticket.id, "action": "internal_note"})
 
     return InternalNoteResponse(
         id=note.id,

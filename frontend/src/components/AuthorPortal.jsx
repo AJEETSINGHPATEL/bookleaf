@@ -1,16 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Book, 
-  DollarSign, 
   PlusCircle, 
   MessageSquare, 
-  Clock, 
-  Send, 
-  AlertCircle, 
-  CheckCircle2, 
-  ExternalLink,
-  Paperclip,
-  FileText
+  Send,
+  Paperclip
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 
@@ -21,6 +14,13 @@ export default function AuthorPortal({ user, reloadSignal }) {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Ref to track active ticket ID across real-time events without stale closures
+  const selectedTicketIdRef = useRef(null);
+
+  useEffect(() => {
+    selectedTicketIdRef.current = selectedTicket?.id;
+  }, [selectedTicket?.id]);
 
   // New Ticket Form State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -36,11 +36,14 @@ export default function AuthorPortal({ user, reloadSignal }) {
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [reloadSignal]);
+  // Non-blocking Toast Notification
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [dash, bks, tix] = await Promise.all([
@@ -53,16 +56,27 @@ export default function AuthorPortal({ user, reloadSignal }) {
       setTickets(tix);
       
       // Update selected ticket if currently viewing one
-      if (selectedTicket) {
-        const updated = tix.find(t => t.id === selectedTicket.id);
-        if (updated) setSelectedTicket(updated);
-      }
+      setSelectedTicket(prev => {
+        if (!prev) return null;
+        return tix.find(t => t.id === prev.id) || prev;
+      });
     } catch (err) {
       console.error('Failed to load author data:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // When reloadSignal changes, re-fetch data AND if selectedTicket is active, fetch its full fresh messages!
+  useEffect(() => {
+    loadData();
+    const currentId = selectedTicketIdRef.current;
+    if (currentId) {
+      apiRequest(`/tickets/${currentId}`)
+        .then(fresh => setSelectedTicket(fresh))
+        .catch(() => {});
+    }
+  }, [loadData, reloadSignal]);
 
   const handleCreateTicket = async (e) => {
     e.preventDefault();
@@ -87,8 +101,9 @@ export default function AuthorPortal({ user, reloadSignal }) {
       await loadData();
       setActiveTab('tickets');
       setSelectedTicket(created);
+      showToast('Support ticket created successfully!');
     } catch (err) {
-      alert(`Error submitting ticket: ${err.message}`);
+      showToast(`Error submitting ticket: ${err.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -110,8 +125,9 @@ export default function AuthorPortal({ user, reloadSignal }) {
       setSelectedTicket(updated);
       // Also update tickets in list
       setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      showToast('Message sent to support team!');
     } catch (err) {
-      alert(`Failed to send reply: ${err.message}`);
+      showToast(`Failed to send reply: ${err.message}`, 'error');
     } finally {
       setSendingReply(false);
     }
@@ -122,13 +138,38 @@ export default function AuthorPortal({ user, reloadSignal }) {
     return <span className={`badge badge-${s}`}>{status}</span>;
   };
 
-  const getPriorityBadge = (priority) => {
-    const p = (priority || '').toLowerCase();
-    return <span className={`badge badge-${p}`}>{priority}</span>;
-  };
+  if (loading && !dashboardData) {
+    return (
+      <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center', color: '#64748b' }}>
+        <p style={{ fontSize: '1rem', fontWeight: '500' }}>Loading author profile and books...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="container" style={{ padding: '2rem 1rem 4rem' }}>
+    <div className="container" style={{ padding: '2rem 1rem 4rem', position: 'relative' }}>
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '24px',
+          zIndex: 9999,
+          padding: '0.85rem 1.25rem',
+          borderRadius: '10px',
+          backgroundColor: toast.type === 'error' ? '#ef4444' : '#10b981',
+          color: '#ffffff',
+          fontWeight: '600',
+          fontSize: '0.9rem',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          animation: 'fadeIn 0.2s ease-in-out'
+        }}>
+          <span>{toast.message}</span>
+        </div>
+      )}
       {/* Top Banner / Metrics */}
       <div style={{
         display: 'grid',

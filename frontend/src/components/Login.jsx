@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { BookOpen, Shield, User, ArrowRight, Sparkles } from 'lucide-react';
+import { BookOpen, ArrowRight } from 'lucide-react';
 import { apiRequest, setAuthToken, setCurrentUser } from '../services/api';
 
-export default function Login({ onLoginSuccess, demoUsers = [] }) {
-  const [email, setEmail] = useState('priya.sharma@email.com');
-  const [password, setPassword] = useState('author123');
+export default function Login({ onLoginSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,11 +26,6 @@ export default function Login({ onLoginSuccess, demoUsers = [] }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickSelect = (userEmail, userPass) => {
-    setEmail(userEmail);
-    setPassword(userPass);
   };
 
   return (
@@ -163,90 +158,6 @@ export default function Login({ onLoginSuccess, demoUsers = [] }) {
               <ArrowRight size={18} />
             </button>
           </form>
-
-          {/* Quick Demo Pre-seed Switcher */}
-          <div style={{ marginTop: '2rem', borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
-              <Sparkles size={16} color="#0284c7" />
-              <span style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>
-                Quick Test Switcher
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('admin@bookleaf.com', 'admin123')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '6px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: email === 'admin@bookleaf.com' ? '#eff6ff' : '#ffffff',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Shield size={16} color="#1e3a8a" />
-                  <span style={{ fontSize: '0.825rem', fontWeight: '600', color: '#1e293b' }}>
-                    Ops Admin (Support Desk)
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>admin123</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('priya.sharma@email.com', 'author123')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '6px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: email === 'priya.sharma@email.com' ? '#eff6ff' : '#ffffff',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <User size={16} color="#059669" />
-                  <span style={{ fontSize: '0.825rem', fontWeight: '600', color: '#1e293b' }}>
-                    Priya Sharma (AUTH001 - 2 Books)
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>author123</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('vikram.joshi@email.com', 'author123')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '6px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: email === 'vikram.joshi@email.com' ? '#eff6ff' : '#ffffff',
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <User size={16} color="#d97706" />
-                  <span style={{ fontSize: '0.825rem', fontWeight: '600', color: '#1e293b' }}>
-                    Vikram Joshi (In Production Edge Case)
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>author123</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

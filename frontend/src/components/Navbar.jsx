@@ -1,6 +1,5 @@
 import React from 'react';
-import { BookOpen, Shield, User, LogOut, Radio } from 'lucide-react';
-import { setAuthToken, setCurrentUser } from '../services/api';
+import { BookOpen, Shield, User, LogOut } from 'lucide-react';
 
 export default function Navbar({ user, onLogout, sseConnected }) {
   const isAdmin = user?.role === 'admin';

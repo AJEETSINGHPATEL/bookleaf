@@ -12,12 +12,19 @@ function App() {
 
   // Setup Server-Sent Events (SSE) for Real-Time synchronization
   useEffect(() => {
+    if (!user) {
+      setSseConnected(false);
+      return;
+    }
+
     let eventSource = null;
+    let reconnectTimeout = null;
 
     const connectSSE = () => {
-      // Connect to FastAPI SSE stream with auth token
       const token = localStorage.getItem('bookleaf_token');
-      const sseUrl = token ? `/api/tickets/stream?token=${encodeURIComponent(token)}` : '/api/tickets/stream';
+      if (!token) return;
+
+      const sseUrl = `/api/tickets/stream?token=${encodeURIComponent(token)}`;
       eventSource = new EventSource(sseUrl);
 
       eventSource.onopen = () => {
@@ -38,10 +45,22 @@ function App() {
 
       eventSource.onerror = () => {
         setSseConnected(false);
+        if (eventSource) {
+          eventSource.close();
+        }
+        // Auto-reconnect after 3 seconds
+        reconnectTimeout = setTimeout(() => {
+          connectSSE();
+        }, 3000);
       };
     };
 
     connectSSE();
+
+    // Subtle 5-second polling safeguard to guarantee zero-refresh real-time updates
+    const syncInterval = setInterval(() => {
+      setReloadSignal(prev => prev + 1);
+    }, 5000);
 
     // Listen for auth-expired event
     const handleAuthExpired = () => {
@@ -51,9 +70,11 @@ function App() {
 
     return () => {
       if (eventSource) eventSource.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(syncInterval);
       window.removeEventListener('auth-expired', handleAuthExpired);
     };
-  }, []);
+  }, [user]);
 
   const handleLogout = () => {
     setAuthToken(null);

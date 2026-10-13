@@ -53,7 +53,7 @@ export async function apiRequest(endpoint, options = {}) {
     try {
       const errData = await res.json();
       errDetail = errData.detail || errData.message || JSON.stringify(errData);
-    } catch (e) {
+    } catch {
       errDetail = `${res.status} ${res.statusText}`;
     }
     throw new Error(errDetail);

@@ -34,7 +34,7 @@ class SSEBroadcaster:
         for sub in list(self.subscribers):
             try:
                 # Admins get everything; authors only get events targeted to them or general
-                if sub.role == "admin" or target_user_id is None or sub.user_id == target_user_id:
+                if sub.role == "admin" or target_user_id is None or str(sub.user_id) == str(target_user_id):
                     await sub.queue.put(payload)
             except Exception:
                 pass
