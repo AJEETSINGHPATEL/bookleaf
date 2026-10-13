@@ -1,0 +1,9 @@
+{
+  "name": "bookleaf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BookLeaf Publishing Full-Stack Platform",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  }
+}

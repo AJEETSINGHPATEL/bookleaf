@@ -1,6 +1,14 @@
+import sys
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
+# Ensure backend directory is in sys.path for Vercel Serverless runtime
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from app.core.config import settings
 from app.db.database import engine, Base
 from app.db.seed import seed_database
@@ -9,7 +17,10 @@ from app.routers import auth, author, tickets, admin
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure database schema is initialized and seeded with sample data
-    seed_database()
+    try:
+        seed_database()
+    except Exception as e:
+        print(f"Startup seed notice: {e}")
     yield
 
 app = FastAPI(
@@ -28,13 +39,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount modular routers
-app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(author.router, prefix=settings.API_V1_STR)
-app.include_router(tickets.router, prefix=settings.API_V1_STR)
-app.include_router(admin.router, prefix=settings.API_V1_STR)
+# Mount modular routers at /api
+app.include_router(auth.router, prefix="/api")
+app.include_router(author.router, prefix="/api")
+app.include_router(tickets.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+
+# Also mount without /api prefix to handle both rewrite modes seamlessly
+app.include_router(auth.router)
+app.include_router(author.router)
+app.include_router(tickets.router)
+app.include_router(admin.router)
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/health")
+@app.get("/health")
 def health_check():
     return {
         "status": "healthy",
