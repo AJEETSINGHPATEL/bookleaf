@@ -7,8 +7,11 @@ current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parent
 backend_dir = root_dir / "backend"
 
-for p in [str(root_dir), str(backend_dir)]:
+for p in [str(current_dir), str(root_dir), str(backend_dir)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from app.main import app
+try:
+    from app.main import app
+except ImportError:
+    from backend.app.main import app

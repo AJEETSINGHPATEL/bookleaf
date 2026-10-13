@@ -3,6 +3,14 @@
   "installCommand": "cd frontend && npm install",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/**/*.py": {
+      "includeFiles": [
+        "backend/**",
+        "bookleaf_sample_data.json"
+      ]
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
