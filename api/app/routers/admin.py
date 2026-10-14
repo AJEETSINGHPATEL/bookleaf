@@ -63,13 +63,25 @@ def get_admin_ticket_queue(
     )
 
     if status_filter and status_filter.lower() != "all":
-        query = query.filter(Ticket.status == status_filter)
+        if status_filter.lower() in ["open", "open queue"]:
+            query = query.filter(Ticket.status == "Open")
+        elif status_filter.lower() in ["in progress", "in_progress"]:
+            query = query.filter(Ticket.status == "In Progress")
+        elif status_filter.lower() in ["resolved"]:
+            query = query.filter(Ticket.status == "Resolved")
+        elif status_filter.lower() in ["closed"]:
+            query = query.filter(Ticket.status == "Closed")
+        else:
+            query = query.filter(Ticket.status == status_filter)
 
     if category_filter and category_filter.lower() != "all":
         query = query.filter(Ticket.category == category_filter)
 
     if priority_filter and priority_filter.lower() != "all":
-        query = query.filter(Ticket.priority == priority_filter)
+        if priority_filter.lower() in ["urgent", "urgent / critical", "urgent/critical", "critical,high"]:
+            query = query.filter(Ticket.priority.in_(["Critical", "High"]))
+        else:
+            query = query.filter(Ticket.priority == priority_filter)
 
     # Date range filtering (ISO format e.g. YYYY-MM-DD)
     if date_from:

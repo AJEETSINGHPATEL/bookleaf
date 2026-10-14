@@ -25,7 +25,7 @@ const CATEGORIES = [
   'General Inquiry'
 ];
 
-const PRIORITIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
+const PRIORITIES = ['All', 'Urgent / Critical', 'Critical', 'High', 'Medium', 'Low'];
 const STATUSES = ['All', 'Open', 'In Progress', 'Resolved', 'Closed'];
 
 export default function AdminPortal({ reloadSignal }) {
@@ -105,10 +105,15 @@ export default function AdminPortal({ reloadSignal }) {
       setSelectedTicket(prev => {
         if (!prev) return null;
         const refreshed = data.find(t => t.id === prev.id);
-        if (refreshed && !isEditingDraftRef.current) {
+        if (!refreshed) return prev;
+        if (!isEditingDraftRef.current) {
           setActiveDraft(refreshed.ai_draft_response || '');
         }
-        return refreshed || prev;
+        return {
+          ...refreshed,
+          messages: (prev.messages && prev.messages.length > 0) ? prev.messages : (refreshed.messages || []),
+          internal_notes: (prev.internal_notes && prev.internal_notes.length > 0) ? prev.internal_notes : (refreshed.internal_notes || [])
+        };
       });
     } catch (err) {
       console.error('Failed to load tickets queue:', err);
@@ -306,72 +311,179 @@ export default function AdminPortal({ reloadSignal }) {
         gap: '1rem',
         marginBottom: '1.5rem'
       }}>
-        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Card 1: Total Tickets */}
+        <div
+          onClick={() => {
+            setStatusFilter('All');
+            setPriorityFilter('All');
+            setCategoryFilter('All');
+            setDateFilter('');
+          }}
+          title="Click to view all tickets"
+          style={{
+            backgroundColor: (statusFilter === 'All' && priorityFilter === 'All') ? '#f0f9ff' : '#ffffff',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            border: (statusFilter === 'All' && priorityFilter === 'All') ? '2px solid #0284c7' : '1px solid #e2e8f0',
+            boxShadow: (statusFilter === 'All' && priorityFilter === 'All') ? '0 4px 6px -1px rgba(2, 132, 199, 0.15)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
             <span>Total Tickets</span>
             <Layers size={16} color="#1e3a8a" />
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginTop: '0.35rem' }}>
-            {statsLoading ? (
-              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
-            ) : (
-              stats?.total_tickets ?? '—'
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>
+              {statsLoading ? (
+                <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+              ) : (
+                stats?.total_tickets ?? '—'
+              )}
+            </div>
+            {(statusFilter === 'All' && priorityFilter === 'All') && (
+              <span style={{ fontSize: '0.65rem', fontWeight: '700', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ACTIVE</span>
             )}
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Card 2: Open Queue */}
+        <div
+          onClick={() => {
+            setStatusFilter('Open');
+            setPriorityFilter('All');
+          }}
+          title="Click to filter by Open queue"
+          style={{
+            backgroundColor: (statusFilter === 'Open' && priorityFilter === 'All') ? '#fffbeb' : '#ffffff',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            border: (statusFilter === 'Open' && priorityFilter === 'All') ? '2px solid #d97706' : '1px solid #e2e8f0',
+            boxShadow: (statusFilter === 'Open' && priorityFilter === 'All') ? '0 4px 6px -1px rgba(217, 119, 6, 0.15)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
             <span>Open Queue</span>
             <Clock size={16} color="#d97706" />
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#d97706', marginTop: '0.35rem' }}>
-            {statsLoading ? (
-              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
-            ) : (
-              stats?.open_tickets ?? '—'
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#d97706' }}>
+              {statsLoading ? (
+                <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+              ) : (
+                stats?.open_tickets ?? '—'
+              )}
+            </div>
+            {(statusFilter === 'Open' && priorityFilter === 'All') && (
+              <span style={{ fontSize: '0.65rem', fontWeight: '700', color: '#d97706', backgroundColor: '#fef3c7', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ACTIVE</span>
             )}
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #fee2e2', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Card 3: Urgent / Critical */}
+        <div
+          onClick={() => {
+            setPriorityFilter('Urgent / Critical');
+            setStatusFilter('All');
+          }}
+          title="Click to filter by Urgent & Critical tickets"
+          style={{
+            backgroundColor: (priorityFilter === 'Urgent / Critical' || (priorityFilter === 'Critical' && statusFilter === 'All')) ? '#fef2f2' : '#ffffff',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            border: (priorityFilter === 'Urgent / Critical' || (priorityFilter === 'Critical' && statusFilter === 'All')) ? '2px solid #dc2626' : '1px solid #fee2e2',
+            boxShadow: (priorityFilter === 'Urgent / Critical' || (priorityFilter === 'Critical' && statusFilter === 'All')) ? '0 4px 6px -1px rgba(220, 38, 38, 0.2)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dc2626', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
             <span>Urgent / Critical</span>
             <AlertTriangle size={16} color="#dc2626" />
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#dc2626', marginTop: '0.35rem' }}>
-            {statsLoading ? (
-              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
-            ) : (
-              stats?.urgent_tickets ?? '—'
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#dc2626' }}>
+              {statsLoading ? (
+                <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+              ) : (
+                stats?.urgent_tickets ?? '—'
+              )}
+            </div>
+            {(priorityFilter === 'Urgent / Critical' || (priorityFilter === 'Critical' && statusFilter === 'All')) && (
+              <span style={{ fontSize: '0.65rem', fontWeight: '700', color: '#dc2626', backgroundColor: '#fee2e2', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ACTIVE</span>
             )}
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Card 4: In Progress */}
+        <div
+          onClick={() => {
+            setStatusFilter('In Progress');
+            setPriorityFilter('All');
+          }}
+          title="Click to filter by In Progress tickets"
+          style={{
+            backgroundColor: (statusFilter === 'In Progress' && priorityFilter === 'All') ? '#eff6ff' : '#ffffff',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            border: (statusFilter === 'In Progress' && priorityFilter === 'All') ? '2px solid #2563eb' : '1px solid #e2e8f0',
+            boxShadow: (statusFilter === 'In Progress' && priorityFilter === 'All') ? '0 4px 6px -1px rgba(37, 99, 235, 0.15)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
             <span>In Progress</span>
             <RefreshCw size={16} color="#2563eb" />
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#2563eb', marginTop: '0.35rem' }}>
-            {statsLoading ? (
-              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
-            ) : (
-              stats?.in_progress ?? '—'
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#2563eb' }}>
+              {statsLoading ? (
+                <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+              ) : (
+                stats?.in_progress ?? '—'
+              )}
+            </div>
+            {(statusFilter === 'In Progress' && priorityFilter === 'All') && (
+              <span style={{ fontSize: '0.65rem', fontWeight: '700', color: '#2563eb', backgroundColor: '#dbeafe', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ACTIVE</span>
             )}
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Card 5: Resolved */}
+        <div
+          onClick={() => {
+            setStatusFilter('Resolved');
+            setPriorityFilter('All');
+          }}
+          title="Click to filter by Resolved tickets"
+          style={{
+            backgroundColor: (statusFilter === 'Resolved' && priorityFilter === 'All') ? '#ecfdf5' : '#ffffff',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            border: (statusFilter === 'Resolved' && priorityFilter === 'All') ? '2px solid #059669' : '1px solid #e2e8f0',
+            boxShadow: (statusFilter === 'Resolved' && priorityFilter === 'All') ? '0 4px 6px -1px rgba(5, 150, 105, 0.15)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
             <span>Resolved</span>
             <CheckCircle2 size={16} color="#059669" />
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#059669', marginTop: '0.35rem' }}>
-            {statsLoading ? (
-              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
-            ) : (
-              stats?.resolved_tickets ?? '—'
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#059669' }}>
+              {statsLoading ? (
+                <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+              ) : (
+                stats?.resolved_tickets ?? '—'
+              )}
+            </div>
+            {(statusFilter === 'Resolved' && priorityFilter === 'All') && (
+              <span style={{ fontSize: '0.65rem', fontWeight: '700', color: '#059669', backgroundColor: '#d1fae5', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ACTIVE</span>
             )}
           </div>
         </div>
@@ -576,6 +688,19 @@ export default function AdminPortal({ reloadSignal }) {
                   {t.subject}
                 </h4>
 
+                <p style={{
+                  fontSize: '0.825rem',
+                  color: '#475569',
+                  marginBottom: '0.5rem',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  lineHeight: '1.4'
+                }}>
+                  {t.description || 'No description provided.'}
+                </p>
+
                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
                   By: <strong>{t.creator_name}</strong> ({t.creator_email})
                   {t.book_title && <span> • <em>{t.book_title}</em></span>}
@@ -619,36 +744,83 @@ export default function AdminPortal({ reloadSignal }) {
                   </h2>
                 </div>
 
-                {/* Self Assign Button */}
-                {!selectedTicket.assigned_to_id ? (
+                {/* Action Buttons: Assign & Close */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {!selectedTicket.assigned_to_id ? (
+                    <button
+                      onClick={handleAssignSelf}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.5rem 0.85rem',
+                        borderRadius: '8px',
+                        backgroundColor: '#1e3a8a',
+                        color: '#ffffff',
+                        border: 'none',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <UserCheck size={16} /> Assign to Me
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '700', backgroundColor: '#ecfdf5', padding: '0.35rem 0.6rem', borderRadius: '6px' }}>
+                      Assigned: {selectedTicket.assigned_to_name}
+                    </span>
+                  )}
+
                   <button
-                    onClick={handleAssignSelf}
+                    onClick={() => setSelectedTicket(null)}
+                    title="Close ticket details"
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.5rem 0.85rem',
+                      padding: '0.45rem 0.75rem',
                       borderRadius: '8px',
-                      backgroundColor: '#1e3a8a',
-                      color: '#ffffff',
-                      border: 'none',
+                      backgroundColor: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
                       fontSize: '0.8rem',
-                      fontWeight: '600',
+                      fontWeight: '700',
                       cursor: 'pointer'
                     }}
                   >
-                    <UserCheck size={16} /> Assign to Me
+                    ✕ Close
                   </button>
-                ) : (
-                  <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '700', backgroundColor: '#ecfdf5', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
-                    Assigned: {selectedTicket.assigned_to_name}
+                </div>
+              </div>
+
+              {/* Original Author Issue Description */}
+              <div style={{
+                marginTop: '1.25rem',
+                backgroundColor: '#ffffff',
+                padding: '1rem 1.25rem',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                    Author Query & Issue Description
                   </span>
+                  {selectedTicket.book_title && (
+                    <span style={{ fontSize: '0.75rem', color: '#1e3a8a', fontWeight: '600' }}>
+                      Book: {selectedTicket.book_title} {selectedTicket.book_isbn ? `(ISBN: ${selectedTicket.book_isbn})` : ''}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.875rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                  {selectedTicket.description || 'No description provided.'}
+                </div>
+                {selectedTicket.attachment_name && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#2563eb', fontWeight: '600' }}>
+                    📎 Attached file: {selectedTicket.attachment_name}
+                  </div>
                 )}
               </div>
 
               {/* Overrides Bar: Category, Priority, Status */}
               <div style={{
-                marginTop: '1.25rem',
+                marginTop: '1rem',
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
                 gap: '0.75rem',
