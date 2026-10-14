@@ -7,6 +7,8 @@ __pycache__/
 .pytest_cache/
 *.db
 *.sqlite3
+venv/
+.venv/
 
 # Node dependencies & builds
 node_modules/

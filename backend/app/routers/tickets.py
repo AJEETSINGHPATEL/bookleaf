@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List, Optional
 import asyncio
 import random
 from datetime import datetime
 
 from app.db.database import get_db
-from app.models.models import User, Ticket, TicketMessage, Book
+from app.models.models import User, Ticket, TicketMessage, Book, InternalNote
 from app.schemas.schemas import (
     TicketCreateRequest,
     TicketResponse,
@@ -20,8 +20,8 @@ from app.services.sse_service import broadcaster
 
 router = APIRouter(prefix="/tickets", tags=["Tickets (Author & Shared)"])
 
-def format_ticket_response(ticket: Ticket) -> dict:
-    return {
+def format_ticket_response(ticket: Ticket, include_details: bool = True) -> dict:
+    res = {
         "id": ticket.id,
         "ticket_number": ticket.ticket_number,
         "creator_id": ticket.creator_id,
@@ -44,7 +44,11 @@ def format_ticket_response(ticket: Ticket) -> dict:
         "ai_draft_response": ticket.ai_draft_response,
         "created_at": ticket.created_at,
         "updated_at": ticket.updated_at,
-        "messages": [
+        "messages": [],
+        "internal_notes": []
+    }
+    if include_details:
+        res["messages"] = [
             {
                 "id": m.id,
                 "ticket_id": m.ticket_id,
@@ -55,9 +59,9 @@ def format_ticket_response(ticket: Ticket) -> dict:
                 "is_admin_reply": m.is_admin_reply,
                 "created_at": m.created_at
             }
-            for m in ticket.messages
-        ],
-        "internal_notes": [
+            for m in (ticket.messages or [])
+        ]
+        res["internal_notes"] = [
             {
                 "id": n.id,
                 "ticket_id": n.ticket_id,
@@ -65,9 +69,9 @@ def format_ticket_response(ticket: Ticket) -> dict:
                 "note": n.note,
                 "created_at": n.created_at
             }
-            for n in ticket.internal_notes
+            for n in (ticket.internal_notes or [])
         ]
-    }
+    return res
 
 @router.get("/stream")
 async def sse_tickets_stream(
@@ -197,11 +201,22 @@ def get_my_tickets(
     current_user: User = Depends(require_author),
     db: Session = Depends(get_db)
 ):
-    tickets = db.query(Ticket).filter(Ticket.creator_id == current_user.id).order_by(Ticket.created_at.desc()).all()
+    tickets = (
+        db.query(Ticket)
+        .options(
+            joinedload(Ticket.creator),
+            joinedload(Ticket.book),
+            joinedload(Ticket.assigned_to),
+            selectinload(Ticket.messages).joinedload(TicketMessage.sender)
+        )
+        .filter(Ticket.creator_id == current_user.id)
+        .order_by(Ticket.created_at.desc())
+        .all()
+    )
     # Note: Authors should NOT see internal notes
     results = []
     for t in tickets:
-        formatted = format_ticket_response(t)
+        formatted = format_ticket_response(t, include_details=True)
         formatted["internal_notes"] = []  # Explicitly stripped for author
         results.append(formatted)
     return results
@@ -212,7 +227,18 @@ def get_ticket_details(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = (
+        db.query(Ticket)
+        .options(
+            joinedload(Ticket.creator),
+            joinedload(Ticket.book),
+            joinedload(Ticket.assigned_to),
+            selectinload(Ticket.messages).joinedload(TicketMessage.sender),
+            selectinload(Ticket.internal_notes).joinedload(InternalNote.admin_user)
+        )
+        .filter(Ticket.id == ticket_id)
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found.")
 
@@ -220,7 +246,7 @@ def get_ticket_details(
     if current_user.role == "author" and ticket.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied: Cannot view another author's ticket.")
 
-    formatted = format_ticket_response(ticket)
+    formatted = format_ticket_response(ticket, include_details=True)
     if current_user.role == "author":
         formatted["internal_notes"] = []  # Strip internal notes for author
     return formatted

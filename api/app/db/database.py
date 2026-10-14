@@ -8,9 +8,8 @@ def get_engine():
     raw_url = (settings.DATABASE_URL or os.environ.get("DATABASE_URL") or "").strip()
     
     if not raw_url:
-        raise RuntimeError(
-            "DATABASE_URL is not configured. Please define it in your .env file or environment variables."
-        )
+        # Graceful fallback to local SQLite for test environments and out-of-the-box dev
+        raw_url = "sqlite:///./bookleaf_dev.db"
 
     target_url = raw_url
     if target_url.startswith("postgres://"):
@@ -20,12 +19,21 @@ def get_engine():
         delim = "&" if "?" in target_url else "?"
         target_url = f"{target_url}{delim}sslmode=require"
 
+    is_sqlite = "sqlite" in target_url
+    pool_kwargs = {
+        "connect_args": {"check_same_thread": False}
+    } if is_sqlite else {
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_timeout": 20,
+        "pool_pre_ping": True,
+        "pool_recycle": 300
+    }
+
     try:
         return create_engine(
             target_url,
-            connect_args={"check_same_thread": False} if "sqlite" in target_url else {},
-            pool_pre_ping=True,
-            pool_recycle=300
+            **pool_kwargs
         )
     except Exception as e:
         # Fallback to postgresql+psycopg2 if default dialect fails
@@ -34,9 +42,7 @@ def get_engine():
                 alt_url = target_url.replace("postgresql://", "postgresql+psycopg2://", 1)
                 return create_engine(
                     alt_url,
-                    connect_args={"check_same_thread": False} if "sqlite" in alt_url else {},
-                    pool_pre_ping=True,
-                    pool_recycle=300
+                    **pool_kwargs
                 )
             except Exception:
                 pass

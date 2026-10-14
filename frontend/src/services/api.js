@@ -25,44 +25,70 @@ export function setCurrentUser(user) {
   }
 }
 
+// In-flight GET requests cache to deduplicate simultaneous duplicate requests
+const inFlightRequests = new Map();
+
 export async function apiRequest(endpoint, options = {}) {
-  const token = getAuthToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {})
-  };
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+  const cacheKey = isGet ? endpoint : null;
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // If an identical GET request is already active in flight, return the shared pending Promise
+  if (isGet && inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey);
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers
-  });
-
-  if (res.status === 401) {
-    // Session expired
-    setAuthToken(null);
-    setCurrentUser(null);
-    window.dispatchEvent(new Event('auth-expired'));
-  }
-
-  if (!res.ok) {
-    let errDetail = 'Request failed';
+  const promise = (async () => {
     try {
-      const errData = await res.json();
-      errDetail = errData.detail || errData.message || JSON.stringify(errData);
-    } catch {
-      try {
-        const text = await res.text();
-        errDetail = text ? text.slice(0, 150) : `Error (${res.status}): Server returned invalid response.`;
-      } catch {
-        errDetail = `Error (${res.status}): Server returned invalid response.`;
+      const token = getAuthToken();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers
+      });
+
+      if (res.status === 401) {
+        // Session expired
+        setAuthToken(null);
+        setCurrentUser(null);
+        window.dispatchEvent(new Event('auth-expired'));
+      }
+
+      if (!res.ok) {
+        let errDetail = 'Request failed';
+        try {
+          const errData = await res.json();
+          errDetail = errData.detail || errData.message || JSON.stringify(errData);
+        } catch {
+          try {
+            const text = await res.text();
+            errDetail = text ? text.slice(0, 150) : `Error (${res.status}): Server returned invalid response.`;
+          } catch {
+            errDetail = `Error (${res.status}): Server returned invalid response.`;
+          }
+        }
+        throw new Error(errDetail);
+      }
+
+      return await res.json();
+    } finally {
+      if (isGet) {
+        inFlightRequests.delete(cacheKey);
       }
     }
-    throw new Error(errDetail);
+  })();
+
+  if (isGet) {
+    inFlightRequests.set(cacheKey, promise);
   }
 
-  return res.json();
+  return promise;
 }

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc, asc, case, func
 from typing import List, Optional
 
 from app.db.database import get_db
@@ -19,6 +19,29 @@ from app.services.sse_service import broadcaster
 
 router = APIRouter(prefix="/admin", tags=["Admin Operations"])
 
+@router.get("/stats")
+def get_admin_dashboard_stats(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns aggregated operations statistics for the admin dashboard.
+    Executes fast indexed count aggregations.
+    """
+    total_tickets = db.query(func.count(Ticket.id)).scalar() or 0
+    open_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == "Open").scalar() or 0
+    in_progress = db.query(func.count(Ticket.id)).filter(Ticket.status == "In Progress").scalar() or 0
+    urgent_tickets = db.query(func.count(Ticket.id)).filter(Ticket.priority.in_(["Critical", "High"])).scalar() or 0
+    resolved_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == "Resolved").scalar() or 0
+
+    return {
+        "total_tickets": total_tickets,
+        "open_tickets": open_tickets,
+        "in_progress": in_progress,
+        "urgent_tickets": urgent_tickets,
+        "resolved_tickets": resolved_tickets
+    }
+
 @router.get("/tickets", response_model=List[TicketResponse])
 def get_admin_ticket_queue(
     status_filter: Optional[str] = Query(None, alias="status"),
@@ -32,7 +55,12 @@ def get_admin_ticket_queue(
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Ticket)
+    # Eager load related entities to eliminate N+1 round-trip queries
+    query = db.query(Ticket).options(
+        joinedload(Ticket.creator),
+        joinedload(Ticket.book),
+        joinedload(Ticket.assigned_to)
+    )
 
     if status_filter and status_filter.lower() != "all":
         query = query.filter(Ticket.status == status_filter)
@@ -60,23 +88,26 @@ def get_admin_ticket_queue(
         except Exception:
             pass
 
-    tickets = query.all()
-
-    # Priority ranking helper for sorting
-    priority_weight = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
-
+    # SQL-level sorting
     if sort_by == "urgent_first":
-        # Critical/High first, then oldest created first
-        tickets.sort(key=lambda t: (-priority_weight.get(t.priority, 0), t.created_at))
+        priority_rank = case(
+            (Ticket.priority == "Critical", 1),
+            (Ticket.priority == "High", 2),
+            (Ticket.priority == "Medium", 3),
+            (Ticket.priority == "Low", 4),
+            else_=5
+        )
+        query = query.order_by(priority_rank.asc(), Ticket.created_at.asc())
     elif sort_by == "oldest":
-        tickets.sort(key=lambda t: t.created_at)
-    else: # newest
-        tickets.sort(key=lambda t: t.created_at, reverse=True)
+        query = query.order_by(Ticket.created_at.asc())
+    else:  # newest
+        query = query.order_by(Ticket.created_at.desc())
 
-    # Apply pagination window
-    paginated_tickets = tickets[offset : offset + limit]
+    # SQL-level pagination window
+    paginated_tickets = query.offset(offset).limit(limit).all()
 
-    return [format_ticket_response(t) for t in paginated_tickets]
+    # Omit heavy child collections in list view to avoid N+1 queries
+    return [format_ticket_response(t, include_details=False) for t in paginated_tickets]
 
 @router.patch("/tickets/{ticket_id}", response_model=TicketResponse)
 async def update_ticket_admin(

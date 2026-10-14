@@ -12,13 +12,11 @@ function App() {
 
   // Setup Server-Sent Events (SSE) for Real-Time synchronization
   useEffect(() => {
-    if (!user) {
-      setSseConnected(false);
-      return;
-    }
+    if (!user) return;
 
     let eventSource = null;
     let reconnectTimeout = null;
+    let reconnectAttempts = 0;
 
     const connectSSE = () => {
       const token = localStorage.getItem('bookleaf_token');
@@ -29,6 +27,7 @@ function App() {
 
       eventSource.onopen = () => {
         setSseConnected(true);
+        reconnectAttempts = 0;
       };
 
       eventSource.addEventListener('ticket_created', () => {
@@ -48,23 +47,28 @@ function App() {
         if (eventSource) {
           eventSource.close();
         }
-        // Auto-reconnect after 3 seconds
+        // Auto-reconnect with exponential backoff (3s up to max 30s)
+        reconnectAttempts++;
+        const backoff = Math.min(30000, 3000 * Math.pow(1.5, Math.min(reconnectAttempts, 6)));
         reconnectTimeout = setTimeout(() => {
           connectSSE();
-        }, 3000);
+        }, backoff);
       };
     };
 
     connectSSE();
 
-    // Subtle 5-second polling safeguard to guarantee zero-refresh real-time updates
+    // Gentle 30-second fallback sync only when document is visible
     const syncInterval = setInterval(() => {
-      setReloadSignal(prev => prev + 1);
-    }, 5000);
+      if (document.visibilityState === 'visible') {
+        setReloadSignal(prev => prev + 1);
+      }
+    }, 30000);
 
     // Listen for auth-expired event
     const handleAuthExpired = () => {
       setUser(null);
+      setSseConnected(false);
     };
     window.addEventListener('auth-expired', handleAuthExpired);
 

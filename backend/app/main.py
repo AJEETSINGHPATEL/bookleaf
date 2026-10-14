@@ -27,6 +27,8 @@ app = FastAPI(
     redirect_slashes=False
 )
 
+from app.core.middleware import ServerTimingMiddleware
+
 # Cross-Origin Resource Sharing (CORS) setup for local dev and web clients
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +37,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Register server-side timing and observability middleware
+app.add_middleware(ServerTimingMiddleware)
 
 # Mount modular routers at /api
 app.include_router(auth.router, prefix="/api")

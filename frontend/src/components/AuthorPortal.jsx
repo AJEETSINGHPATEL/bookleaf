@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   PlusCircle, 
   MessageSquare, 
-  Send,
-  Paperclip
+  Send, 
+  Paperclip,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 
@@ -14,6 +16,7 @@ export default function AuthorPortal({ user, reloadSignal }) {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Ref to track active ticket ID across real-time events without stale closures
   const selectedTicketIdRef = useRef(null);
@@ -46,6 +49,7 @@ export default function AuthorPortal({ user, reloadSignal }) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const [dash, bks, tix] = await Promise.all([
         apiRequest('/author/dashboard'),
         apiRequest('/author/books'),
@@ -62,6 +66,7 @@ export default function AuthorPortal({ user, reloadSignal }) {
       });
     } catch (err) {
       console.error('Failed to load author data:', err);
+      setError(err.message || 'Failed to load author data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -138,14 +143,6 @@ export default function AuthorPortal({ user, reloadSignal }) {
     return <span className={`badge badge-${s}`}>{status}</span>;
   };
 
-  if (loading && !dashboardData) {
-    return (
-      <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center', color: '#64748b' }}>
-        <p style={{ fontSize: '1rem', fontWeight: '500' }}>Loading author profile and books...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container" style={{ padding: '2rem 1rem 4rem', position: 'relative' }}>
       {/* Toast Notification Banner */}
@@ -170,6 +167,49 @@ export default function AuthorPortal({ user, reloadSignal }) {
           <span>{toast.message}</span>
         </div>
       )}
+
+      {/* Error Retry Banner */}
+      {error && (
+        <div style={{
+          backgroundColor: '#ffffff',
+          border: '1px solid #fecaca',
+          borderRadius: '12px',
+          padding: '1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#b91c1c' }}>
+            <AlertCircle size={22} color="#dc2626" />
+            <div>
+              <p style={{ fontWeight: '700', fontSize: '0.9rem', margin: 0 }}>Error loading dashboard data</p>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={loadData}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.45rem 1rem',
+              backgroundColor: '#1e3a8a',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: '600',
+              fontSize: '0.85rem',
+              cursor: 'pointer'
+            }}
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      )}
+
       {/* Top Banner / Metrics */}
       <div style={{
         display: 'grid',
@@ -187,14 +227,14 @@ export default function AuthorPortal({ user, reloadSignal }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>Author Details</span>
             <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '0.15rem 0.5rem', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569' }}>
-              {dashboardData?.author?.author_id_code}
+              {dashboardData?.author?.author_id_code || user?.author_id_code || 'AUTH'}
             </span>
           </div>
           <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#0f172a', marginTop: '0.5rem' }}>
-            {user?.name}
+            {user?.name || dashboardData?.author?.name}
           </div>
           <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
-            {dashboardData?.author?.city || 'India'} • Joined {dashboardData?.author?.joined_date || 'N/A'}
+            {dashboardData?.author?.city || 'Verified Author'} • Joined {dashboardData?.author?.joined_date || 'Active'}
           </div>
         </div>
 
@@ -206,9 +246,13 @@ export default function AuthorPortal({ user, reloadSignal }) {
           boxShadow: 'var(--shadow-sm)'
         }}>
           <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>Published Books & Copies</span>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginTop: '0.5rem' }}>
-            {dashboardData?.metrics?.total_books || 0} Titles
-          </div>
+          {loading && !dashboardData ? (
+            <div style={{ width: '5rem', height: '1.75rem', backgroundColor: '#e2e8f0', borderRadius: '4px', marginTop: '0.5rem' }} />
+          ) : (
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginTop: '0.5rem' }}>
+              {dashboardData?.metrics?.total_books ?? books.length} Titles
+            </div>
+          )}
           <div style={{ fontSize: '0.8rem', color: '#0284c7', marginTop: '0.2rem', fontWeight: '600' }}>
             {dashboardData?.metrics?.total_copies_sold || 0} Total Copies Sold
           </div>
@@ -222,9 +266,13 @@ export default function AuthorPortal({ user, reloadSignal }) {
           boxShadow: 'var(--shadow-sm)'
         }}>
           <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>Royalties Earned & Paid</span>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#059669', marginTop: '0.5rem' }}>
-            ₹{Number(dashboardData?.metrics?.total_royalty_earned || 0).toLocaleString()}
-          </div>
+          {loading && !dashboardData ? (
+            <div style={{ width: '6rem', height: '1.75rem', backgroundColor: '#e2e8f0', borderRadius: '4px', marginTop: '0.5rem' }} />
+          ) : (
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#059669', marginTop: '0.5rem' }}>
+              ₹{Number(dashboardData?.metrics?.total_royalty_earned || 0).toLocaleString()}
+            </div>
+          )}
           <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
             Paid out: ₹{Number(dashboardData?.metrics?.total_royalty_paid || 0).toLocaleString()}
           </div>
@@ -245,9 +293,13 @@ export default function AuthorPortal({ user, reloadSignal }) {
               </span>
             )}
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#d97706', marginTop: '0.5rem' }}>
-            ₹{Number(dashboardData?.metrics?.total_royalty_pending || 0).toLocaleString()}
-          </div>
+          {loading && !dashboardData ? (
+            <div style={{ width: '6rem', height: '1.75rem', backgroundColor: '#e2e8f0', borderRadius: '4px', marginTop: '0.5rem' }} />
+          ) : (
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#d97706', marginTop: '0.5rem' }}>
+              ₹{Number(dashboardData?.metrics?.total_royalty_pending || 0).toLocaleString()}
+            </div>
+          )}
           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
             Threshold: ₹1,000 (Quarterly cycle)
           </div>
@@ -337,7 +389,21 @@ export default function AuthorPortal({ user, reloadSignal }) {
       {/* Tab 1: My Books */}
       {activeTab === 'books' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
-          {books.map((b) => (
+          {loading && books.length === 0 ? (
+            [1, 2, 3].map(idx => (
+              <div key={`book-skeleton-${idx}`} style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ width: '60%', height: '20px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '1rem' }} />
+                <div style={{ width: '40%', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                <div style={{ width: '50%', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', marginBottom: '1rem' }} />
+                <div style={{ width: '100%', height: '60px', backgroundColor: '#f8fafc', borderRadius: '8px' }} />
+              </div>
+            ))
+          ) : books.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', color: '#64748b' }}>
+              No books found in your author catalog.
+            </div>
+          ) : (
+            books.map((b) => (
             <div key={b.id} style={{
               backgroundColor: '#ffffff',
               borderRadius: '12px',
@@ -419,7 +485,7 @@ export default function AuthorPortal({ user, reloadSignal }) {
                 </div>
               )}
             </div>
-          ))}
+          )))}
         </div>
       )}
 
@@ -428,7 +494,28 @@ export default function AuthorPortal({ user, reloadSignal }) {
         <div style={{ display: 'grid', gridTemplateColumns: selectedTicket ? '1fr 1.3fr' : '1fr', gap: '1.5rem' }}>
           {/* Tickets List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {tickets.length === 0 ? (
+            {loading && tickets.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {[1, 2, 3].map(i => (
+                  <div key={i} style={{
+                    backgroundColor: '#ffffff',
+                    padding: '1.25rem',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div style={{ width: '80px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
+                      <div style={{ width: '60px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
+                    </div>
+                    <div style={{ width: '60%', height: '18px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+                    <div style={{ width: '90%', height: '14px', backgroundColor: '#f8fafc', borderRadius: '4px' }} />
+                  </div>
+                ))}
+              </div>
+            ) : tickets.length === 0 ? (
               <div style={{
                 backgroundColor: '#ffffff',
                 padding: '3rem',

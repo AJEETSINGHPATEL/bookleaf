@@ -6,7 +6,12 @@ import {
   Send, 
   Edit3, 
   RefreshCw, 
-  StickyNote
+  StickyNote,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Layers
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 
@@ -27,6 +32,12 @@ export default function AdminPortal({ reloadSignal }) {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [ticketsError, setTicketsError] = useState(null);
+
+  // Asynchronous Dashboard Statistics
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
 
   // Filters
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -41,6 +52,7 @@ export default function AdminPortal({ reloadSignal }) {
   const [isRegeneratingDraft, setIsRegeneratingDraft] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
+  const [loadingTicketDetails, setLoadingTicketDetails] = useState(false);
 
   // Refs to avoid stale closures in SSE effect
   const selectedTicketIdRef = useRef(null);
@@ -62,9 +74,24 @@ export default function AdminPortal({ reloadSignal }) {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const loadStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      setStatsError(null);
+      const data = await apiRequest('/admin/stats');
+      setStats(data);
+    } catch (err) {
+      console.error('Failed to load admin stats:', err);
+      setStatsError(err.message || 'Unable to load statistics');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   const loadTickets = useCallback(async () => {
     try {
       setLoading(true);
+      setTicketsError(null);
       const queryParams = new URLSearchParams();
       if (categoryFilter !== 'All') queryParams.append('category', categoryFilter);
       if (priorityFilter !== 'All') queryParams.append('priority', priorityFilter);
@@ -85,14 +112,16 @@ export default function AdminPortal({ reloadSignal }) {
       });
     } catch (err) {
       console.error('Failed to load tickets queue:', err);
+      setTicketsError(err.message || 'Failed to load tickets queue.');
     } finally {
       setLoading(false);
     }
   }, [categoryFilter, priorityFilter, statusFilter, dateFilter, sortBy]);
 
-  // Synchronize on reloadSignal: reload queue AND fetch latest full ticket details in real time
+  // Synchronize on reloadSignal: reload queue & stats asynchronously
   useEffect(() => {
     loadTickets();
+    loadStats();
     const currentId = selectedTicketIdRef.current;
     if (currentId) {
       apiRequest(`/tickets/${currentId}`)
@@ -107,12 +136,28 @@ export default function AdminPortal({ reloadSignal }) {
         })
         .catch(() => {});
     }
-  }, [loadTickets, reloadSignal]);
+  }, [loadTickets, loadStats, reloadSignal]);
 
-  const handleSelectTicket = (ticket) => {
+  const handleSelectTicket = async (ticket) => {
     setSelectedTicket(ticket);
     setActiveDraft(ticket.ai_draft_response || '');
     setIsEditingDraft(false);
+
+    // Load full messages and internal notes if not present
+    if (!ticket.messages || ticket.messages.length === 0) {
+      try {
+        setLoadingTicketDetails(true);
+        const full = await apiRequest(`/tickets/${ticket.id}`);
+        setSelectedTicket(full);
+        if (!isEditingDraftRef.current) {
+          setActiveDraft(full.ai_draft_response || '');
+        }
+      } catch (err) {
+        console.error('Failed to load conversation details:', err);
+      } finally {
+        setLoadingTicketDetails(false);
+      }
+    }
   };
 
   const handleOverride = async (field, value) => {
@@ -248,6 +293,90 @@ export default function AdminPortal({ reloadSignal }) {
           <span>{toast.message}</span>
         </div>
       )}
+      {/* Asynchronous Operations Statistics Ribbon */}
+      {statsError && (
+        <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', padding: '0.6rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Failed to refresh metrics: {statsError}</span>
+          <button onClick={loadStats} style={{ border: 'none', background: 'none', color: '#b45309', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}>Retry</button>
+        </div>
+      )}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '1rem',
+        marginBottom: '1.5rem'
+      }}>
+        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
+            <span>Total Tickets</span>
+            <Layers size={16} color="#1e3a8a" />
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginTop: '0.35rem' }}>
+            {statsLoading ? (
+              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            ) : (
+              stats?.total_tickets ?? '—'
+            )}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
+            <span>Open Queue</span>
+            <Clock size={16} color="#d97706" />
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#d97706', marginTop: '0.35rem' }}>
+            {statsLoading ? (
+              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            ) : (
+              stats?.open_tickets ?? '—'
+            )}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #fee2e2', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dc2626', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
+            <span>Urgent / Critical</span>
+            <AlertTriangle size={16} color="#dc2626" />
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#dc2626', marginTop: '0.35rem' }}>
+            {statsLoading ? (
+              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            ) : (
+              stats?.urgent_tickets ?? '—'
+            )}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
+            <span>In Progress</span>
+            <RefreshCw size={16} color="#2563eb" />
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#2563eb', marginTop: '0.35rem' }}>
+            {statsLoading ? (
+              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            ) : (
+              stats?.in_progress ?? '—'
+            )}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: '#ffffff', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>
+            <span>Resolved</span>
+            <CheckCircle2 size={16} color="#059669" />
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#059669', marginTop: '0.35rem' }}>
+            {statsLoading ? (
+              <div style={{ height: '1.5rem', width: '3rem', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            ) : (
+              stats?.resolved_tickets ?? '—'
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Top Filter Bar */}
       <div style={{
         backgroundColor: '#ffffff',
@@ -349,10 +478,65 @@ export default function AdminPortal({ reloadSignal }) {
       }}>
         {/* Ticket Queue Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {loading && tickets.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#64748b', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <p style={{ fontSize: '0.9rem', fontWeight: '500' }}>Loading operations queue...</p>
+          {ticketsError ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '2rem 1.5rem',
+              color: '#b91c1c',
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              border: '1px solid #fecaca',
+              boxShadow: 'var(--shadow-sm)'
+            }}>
+              <AlertCircle size={32} color="#dc2626" style={{ margin: '0 auto 0.75rem', display: 'block' }} />
+              <h4 style={{ fontSize: '1rem', fontWeight: '700', color: '#991b1b', marginBottom: '0.35rem' }}>
+                Failed to Load Operations Queue
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.25rem' }}>{ticketsError}</p>
+              <button
+                onClick={loadTickets}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  backgroundColor: '#1e3a8a',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <RefreshCw size={14} /> Retry Loading
+              </button>
             </div>
+          ) : loading && tickets.length === 0 ? (
+            /* Loading Skeleton Placeholders */
+            [1, 2, 3, 4].map(idx => (
+              <div
+                key={`skeleton-${idx}`}
+                style={{
+                  backgroundColor: '#ffffff',
+                  padding: '1.25rem',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                  <div style={{ width: '80px', height: '18px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+                  <div style={{ width: '60px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+                </div>
+                <div style={{ width: '70%', height: '18px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '0.75rem' }} />
+                <div style={{ width: '45%', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', marginBottom: '0.75rem' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: '1px solid #f8fafc' }}>
+                  <div style={{ width: '90px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
+                  <div style={{ width: '100px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
+                </div>
+              </div>
+            ))
           ) : tickets.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#64748b', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <p style={{ fontSize: '0.9rem', fontWeight: '500' }}>No tickets match the selected filters.</p>
@@ -639,8 +823,9 @@ export default function AdminPortal({ reloadSignal }) {
 
             {/* Conversation History Timeline */}
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.75rem' }}>
-                Thread Messages ({selectedTicket.messages?.length || 0})
+              <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Thread Messages ({selectedTicket.messages?.length || 0})</span>
+                {loadingTicketDetails && <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '500' }}>Loading details...</span>}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '250px', overflowY: 'auto' }}>
                 {selectedTicket.messages?.map((m) => (

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, JSON, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.db.database import Base
@@ -42,7 +42,7 @@ class Book(Base):
     __tablename__ = "books"
 
     id = Column(Integer, primary_key=True, index=True)
-    author_profile_id = Column(Integer, ForeignKey("author_profiles.id"), nullable=False)
+    author_profile_id = Column(Integer, ForeignKey("author_profiles.id"), index=True, nullable=False)
     book_id_code = Column(String(50), unique=True, index=True, nullable=False)  # e.g., "BK001"
     title = Column(String(255), nullable=False)
     isbn = Column(String(50), nullable=False)
@@ -67,29 +67,34 @@ class Ticket(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     ticket_number = Column(String(50), unique=True, index=True, nullable=False) # e.g. TIK-1001
-    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    book_id = Column(Integer, ForeignKey("books.id"), nullable=True) # nullable for General queries
+    creator_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    book_id = Column(Integer, ForeignKey("books.id"), index=True, nullable=True) # nullable for General queries
     
     subject = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     attachment_name = Column(String(255), nullable=True)
     
     # AI-assisted classifications
-    category = Column(String(100), nullable=False) 
+    category = Column(String(100), index=True, nullable=False) 
     ai_predicted_category = Column(String(100), nullable=True)
-    priority = Column(String(50), nullable=False, default="Medium") # Critical, High, Medium, Low
+    priority = Column(String(50), index=True, nullable=False, default="Medium") # Critical, High, Medium, Low
     ai_predicted_priority = Column(String(50), nullable=True)
     priority_reasoning = Column(Text, nullable=True)
     
     # Status lifecycle: Open -> In Progress -> Resolved -> Closed
-    status = Column(String(50), nullable=False, default="Open")
-    assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String(50), index=True, nullable=False, default="Open")
+    assigned_to_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
     
     # AI response draft
     ai_draft_response = Column(Text, nullable=True)
     
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, index=True, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_tickets_priority_created", "priority", "created_at"),
+        Index("ix_tickets_status_priority", "status", "priority"),
+    )
 
     # Relationships
     creator = relationship("User", back_populates="created_tickets", foreign_keys=[creator_id])
@@ -102,11 +107,11 @@ class TicketMessage(Base):
     __tablename__ = "ticket_messages"
 
     id = Column(Integer, primary_key=True, index=True)
-    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), index=True, nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     message = Column(Text, nullable=False)
     is_admin_reply = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, index=True, default=utcnow)
 
     ticket = relationship("Ticket", back_populates="messages")
     sender = relationship("User", back_populates="messages")
@@ -115,10 +120,10 @@ class InternalNote(Base):
     __tablename__ = "internal_notes"
 
     id = Column(Integer, primary_key=True, index=True)
-    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), index=True, nullable=False)
     admin_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     note = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=utcnow)
+    created_at = Column(DateTime, index=True, default=utcnow)
 
     ticket = relationship("Ticket", back_populates="internal_notes")
     admin_user = relationship("User", back_populates="internal_notes")
